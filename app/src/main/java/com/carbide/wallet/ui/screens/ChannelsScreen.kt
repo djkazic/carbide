@@ -67,6 +67,7 @@ fun ChannelsScreen(
     viewModel: WalletViewModel = hiltViewModel(),
 ) {
     val channels by viewModel.channels.collectAsStateWithLifecycle()
+    val pendingChannels by viewModel.pendingChannels.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.refreshChannels()
@@ -114,10 +115,10 @@ fun ChannelsScreen(
             modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            if (channels.isEmpty()) {
+            if (channels.isEmpty() && pendingChannels.isEmpty()) {
                 item {
                     Text(
-                        "No active channels",
+                        "No channels",
                         style = MaterialTheme.typography.bodyLarge,
                         color = TextTertiary,
                         modifier = Modifier.padding(vertical = 32.dp),
@@ -125,8 +126,34 @@ fun ChannelsScreen(
                 }
             }
 
-            items(channels, key = { it.chanId }) { channel ->
-                ChannelCard(channel, fmt, viewModel)
+            // Pending channels
+            if (pendingChannels.isNotEmpty()) {
+                item {
+                    Text(
+                        "Pending",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                    )
+                }
+                items(pendingChannels, key = { it.channelPoint }) { pending ->
+                    PendingChannelCard(pending, fmt)
+                }
+            }
+
+            // Active channels
+            if (channels.isNotEmpty()) {
+                item {
+                    Text(
+                        "Active",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                    )
+                }
+                items(channels, key = { it.chanId }) { channel ->
+                    ChannelCard(channel, fmt, viewModel)
+                }
             }
 
             item { Spacer(Modifier.height(16.dp)) }
@@ -196,6 +223,49 @@ private fun ForceCloseButton(onForceClose: () -> Unit) {
                 color = if (isHolding) Negative else TextTertiary,
             )
         }
+    }
+}
+
+@Composable
+private fun PendingChannelCard(pending: com.carbide.wallet.data.model.PendingChannelInfo, fmt: NumberFormat) {
+    val statusText = when (pending.type) {
+        com.carbide.wallet.data.model.PendingChannelInfo.PendingType.OPENING -> "Opening"
+        com.carbide.wallet.data.model.PendingChannelInfo.PendingType.CLOSING -> "Closing"
+        com.carbide.wallet.data.model.PendingChannelInfo.PendingType.FORCE_CLOSING -> "Force closing"
+        com.carbide.wallet.data.model.PendingChannelInfo.PendingType.WAITING_CLOSE -> "Waiting close"
+    }
+    val statusColor = when (pending.type) {
+        com.carbide.wallet.data.model.PendingChannelInfo.PendingType.OPENING -> Lightning
+        else -> TextTertiary
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceCard)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box(
+                modifier = Modifier.size(8.dp).clip(CircleShape).background(statusColor),
+            )
+            Text(statusText, style = MaterialTheme.typography.titleMedium, color = statusColor)
+        }
+
+        Text(
+            pending.remotePubkey,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+
+        DetailLine("Capacity", "${fmt.format(pending.capacity)} sats")
+        DetailLine("Local", "${fmt.format(pending.localBalance)} sats")
+        DetailLine("Remote", "${fmt.format(pending.remoteBalance)} sats")
     }
 }
 

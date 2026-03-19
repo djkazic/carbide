@@ -50,6 +50,17 @@ data class ChannelInfo(
     val sendableSat: Long get() = (localBalance - localReserveSat).coerceAtLeast(0)
 }
 
+data class PendingChannelInfo(
+    val channelPoint: String,
+    val remotePubkey: String,
+    val capacity: Long,
+    val localBalance: Long,
+    val remoteBalance: Long,
+    val type: PendingType,
+) {
+    enum class PendingType { OPENING, CLOSING, FORCE_CLOSING, WAITING_CLOSE }
+}
+
 data class HtlcInfo(
     val incoming: Boolean,
     val amount: Long,

@@ -69,6 +69,7 @@ fun CarbideNavGraph(navController: NavHostController) {
             }
             is LndState.Running -> {
                 viewModel.startBackupSubscription()
+                viewModel.startChannelAcceptor()
                 viewModel.startInvoiceSubscription()
                 viewModel.startPaymentNotifications()
                 viewModel.startLnadHandler()

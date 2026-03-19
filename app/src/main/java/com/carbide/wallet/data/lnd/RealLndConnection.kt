@@ -112,7 +112,7 @@ class RealLndConnection @Inject constructor(
                             status = if (tx.numConfirmations > 0) Transaction.Status.SETTLED
                             else Transaction.Status.PENDING,
                             type = Transaction.Type.ONCHAIN,
-                            memo = tx.label.ifEmpty { "On-chain" },
+                            memo = formatOnchainLabel(tx.label),
                             timestamp = Instant.ofEpochSecond(tx.timeStamp),
                             feeSats = tx.totalFees,
                         )
@@ -220,6 +220,7 @@ class RealLndConnection @Inject constructor(
             val request = LN.Invoice.newBuilder()
                 .setValue(amountSats)
                 .setMemo(memo)
+                .setPrivate(true) // include route hints for private channels
                 .build()
             val response = lndCall(
                 lndmobile.Lndmobile::addInvoice,
@@ -410,4 +411,16 @@ class RealLndConnection @Inject constructor(
             )
             "${response.fundingTxidStr}:${response.outputIndex}"
         }
+
+    private fun formatOnchainLabel(label: String): String {
+        if (label.isBlank()) return "On-chain"
+        return when {
+            label.contains("closechannel") -> "Channel close"
+            label.contains("openchannel") -> "Channel open"
+            label.contains("sweep") -> "Sweep"
+            label.contains("justice") -> "Justice transaction"
+            label.contains("anchor") -> "Anchor"
+            else -> label
+        }
+    }
 }

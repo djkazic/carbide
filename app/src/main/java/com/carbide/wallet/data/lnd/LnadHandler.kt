@@ -66,6 +66,7 @@ class LnadHandler @Inject constructor() {
             val invoiceReq = LN.Invoice.newBuilder()
                 .setValue(amountSat)
                 .setMemo(memo)
+                .setPrivate(true) // include route hints for private channels
                 .build()
 
             val invoiceResp = lndCall(

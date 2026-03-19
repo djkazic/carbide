@@ -9,6 +9,7 @@ import com.carbide.wallet.data.boltz.SubmarineSwapInfo
 import com.carbide.wallet.data.boltz.SubmarineSwapState
 import com.carbide.wallet.data.ContactStore
 import com.carbide.wallet.data.PaymentNotifier
+import com.carbide.wallet.data.lnd.ChannelAcceptorService
 import com.carbide.wallet.data.lnd.ChainTipProvider
 import com.carbide.wallet.data.model.Contact
 import com.carbide.wallet.data.lnd.ChannelPromptStore
@@ -50,6 +51,7 @@ class WalletViewModel @Inject constructor(
     private val lsps1Client: Lsps1Client,
     private val chainTipProvider: ChainTipProvider,
     val biometricLockManager: com.carbide.wallet.data.BiometricLockManager,
+    private val channelAcceptorService: ChannelAcceptorService,
     private val lnadHandler: LnadHandler,
     private val scbBackupClient: ScbBackupClient,
     val lnurlAuth: LnurlAuth,
@@ -87,9 +89,52 @@ class WalletViewModel @Inject constructor(
     private val _channels = MutableStateFlow<List<ChannelInfo>>(emptyList())
     val channels: StateFlow<List<ChannelInfo>> = _channels.asStateFlow()
 
+    private val _pendingChannels = MutableStateFlow<List<com.carbide.wallet.data.model.PendingChannelInfo>>(emptyList())
+    val pendingChannels: StateFlow<List<com.carbide.wallet.data.model.PendingChannelInfo>> = _pendingChannels.asStateFlow()
+
     fun refreshChannels() {
         viewModelScope.launch {
             _channels.value = repository.listChannels().getOrDefault(emptyList())
+            // Also fetch pending channels
+            try {
+                val resp = com.carbide.wallet.data.lnd.lndCall(
+                    lndmobile.Lndmobile::pendingChannels,
+                    lnrpc.LightningOuterClass.PendingChannelsRequest.getDefaultInstance(),
+                    lnrpc.LightningOuterClass.PendingChannelsResponse.parser(),
+                )
+                val pending = mutableListOf<com.carbide.wallet.data.model.PendingChannelInfo>()
+                for (ch in resp.pendingOpenChannelsList) {
+                    pending.add(com.carbide.wallet.data.model.PendingChannelInfo(
+                        channelPoint = ch.channel.channelPoint,
+                        remotePubkey = ch.channel.remoteNodePub,
+                        capacity = ch.channel.capacity,
+                        localBalance = ch.channel.localBalance,
+                        remoteBalance = ch.channel.remoteBalance,
+                        type = com.carbide.wallet.data.model.PendingChannelInfo.PendingType.OPENING,
+                    ))
+                }
+                for (ch in resp.waitingCloseChannelsList) {
+                    pending.add(com.carbide.wallet.data.model.PendingChannelInfo(
+                        channelPoint = ch.channel.channelPoint,
+                        remotePubkey = ch.channel.remoteNodePub,
+                        capacity = ch.channel.capacity,
+                        localBalance = ch.channel.localBalance,
+                        remoteBalance = ch.channel.remoteBalance,
+                        type = com.carbide.wallet.data.model.PendingChannelInfo.PendingType.WAITING_CLOSE,
+                    ))
+                }
+                for (ch in resp.pendingForceClosingChannelsList) {
+                    pending.add(com.carbide.wallet.data.model.PendingChannelInfo(
+                        channelPoint = ch.channel.channelPoint,
+                        remotePubkey = ch.channel.remoteNodePub,
+                        capacity = ch.channel.capacity,
+                        localBalance = ch.channel.localBalance,
+                        remoteBalance = ch.channel.remoteBalance,
+                        type = com.carbide.wallet.data.model.PendingChannelInfo.PendingType.FORCE_CLOSING,
+                    ))
+                }
+                _pendingChannels.value = pending
+            } catch (_: Exception) {}
         }
     }
 
@@ -165,6 +210,10 @@ class WalletViewModel @Inject constructor(
 
     fun startLnadHandler() {
         lnadHandler.start()
+    }
+
+    fun startChannelAcceptor() {
+        channelAcceptorService.start()
     }
 
     fun startPaymentNotifications() {

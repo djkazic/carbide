@@ -367,6 +367,7 @@ class BoltzSwapManager @Inject constructor(
         val invoiceReq = LN.Invoice.newBuilder()
             .setValue(amountSat)
             .setMemo("Boltz submarine swap")
+            .setPrivate(true) // include route hints for private channels
             .build()
         val invoiceResp = lndCall(
             lndmobile.Lndmobile::addInvoice,

@@ -195,12 +195,15 @@ private fun SubmarineSwapPane(onBack: () -> Unit, viewModel: WalletViewModel) {
     val subSwapStatus by viewModel.subSwapStatus.collectAsStateWithLifecycle()
     val walletState by viewModel.walletState.collectAsStateWithLifecycle()
 
+    val channels by viewModel.channels.collectAsStateWithLifecycle()
+    val maxReceivable = channels.sumOf { it.receivableSat }
+
     val swapInfo = subSwapInfoResult?.getOrNull()
     val infoError = subSwapInfoResult?.exceptionOrNull()?.message
     val swap = subSwapStateResult?.getOrNull()
     val swapError = subSwapStateResult?.exceptionOrNull()?.message
 
-    LaunchedEffect(Unit) { viewModel.fetchSubSwapInfo(); viewModel.resumeSubmarineSwap() }
+    LaunchedEffect(Unit) { viewModel.fetchSubSwapInfo(); viewModel.resumeSubmarineSwap(); viewModel.refreshChannels() }
     LaunchedEffect(subSwapStateResult) { if (subSwapStateResult != null) isSwapping = false }
     DisposableEffect(Unit) { onDispose { viewModel.clearSubSwapState() } }
 
@@ -226,22 +229,28 @@ private fun SubmarineSwapPane(onBack: () -> Unit, viewModel: WalletViewModel) {
             "Boltz will pay your Lightning invoice",
         )
     } else {
+        val amountSat = amountText.toLongOrNull() ?: 0
+        val exceedsReceivable = amountSat > maxReceivable && maxReceivable > 0
+        val capacityWarning = if (exceedsReceivable)
+            "Exceeds receivable capacity (${fmt.format(maxReceivable)} sats). Payment will fail."
+        else null
+
         AmountPane(
             description = "Move on-chain balance to Lightning via Boltz atomic swap.",
-            available = "${fmt.format(walletState.onchainBalanceSats)} sats (On-chain)",
+            available = "${fmt.format(walletState.onchainBalanceSats)} sats (On-chain)" +
+                if (maxReceivable > 0) " · Max receivable: ${fmt.format(maxReceivable)}" else "",
             minMax = swapInfo?.let { "Min: ${fmt.format(it.minAmount)} · Max: ${fmt.format(it.maxAmount)} sats" },
             amountText = amountText,
             onAmountChange = { amountText = it },
             feePreview = swapInfo?.let { info ->
-                val amt = amountText.toLongOrNull() ?: 0
-                if (amt > 0) Triple("${fmt.format(amt)} sats", "${fmt.format(info.totalFeeSat(amt))} sats", "${fmt.format(amt - info.totalFeeSat(amt))} sats")
+                if (amountSat > 0) Triple("${fmt.format(amountSat)} sats", "${fmt.format(info.totalFeeSat(amountSat))} sats", "${fmt.format(amountSat - info.totalFeeSat(amountSat))} sats")
                 else null
             },
             sendLabel = "Send (On-chain)",
             receiveLabel = "Receive (Lightning)",
-            isValid = swapInfo?.let { (amountText.toLongOrNull() ?: 0) in it.minAmount..it.maxAmount } ?: false,
+            isValid = swapInfo?.let { amountSat in it.minAmount..it.maxAmount && !exceedsReceivable } ?: false,
+            error = infoError ?: capacityWarning,
             isSwapping = isSwapping,
-            error = infoError,
             onSwap = {
                 isSwapping = true
                 viewModel.startSubmarineSwap(amountText.toLongOrNull() ?: 0)
