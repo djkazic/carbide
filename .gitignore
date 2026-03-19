@@ -1,0 +1,29 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Signing
+*.keystore
+*.jks
+keystore.properties
+
+# Closed-source server daemons
+/lsp1d/
+/lnad/
+/scbd/
+
+# Built binaries
+*.aar
+lndmobile/Lndmobile.aar
+lndmobile/build/
+
+# Test artifacts
+/sighash_test/
