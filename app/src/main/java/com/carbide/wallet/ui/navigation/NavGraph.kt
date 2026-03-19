@@ -8,6 +8,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -38,6 +40,22 @@ private const val LSP_HOST = "100.0.242.58:9735"
 fun CarbideNavGraph(navController: NavHostController) {
     val viewModel: WalletViewModel = hiltViewModel()
     val lndState by viewModel.lndState.collectAsStateWithLifecycle()
+
+    // NFC: watch for tapped data and navigate to Send
+    val activity = androidx.compose.ui.platform.LocalContext.current as? com.carbide.wallet.MainActivity
+    val nfcData by activity?.nfcManager?.scannedData?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(null) }
+    LaunchedEffect(nfcData) {
+        val data = nfcData ?: return@LaunchedEffect
+        activity?.nfcManager?.clearScannedData()
+        val cleaned = data.removePrefix("lightning:").removePrefix("LIGHTNING:").trim()
+        if (cleaned.isNotBlank()) {
+            if (cleaned.lowercase().contains("tag=login")) {
+                navController.navigate(Screen.Auth.withUrl(cleaned))
+            } else {
+                navController.navigate(Screen.Send.withInvoice(cleaned))
+            }
+        }
+    }
 
     // Request notification permission on Android 13+
     if (android.os.Build.VERSION.SDK_INT >= 33) {

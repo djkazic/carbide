@@ -12,6 +12,7 @@ data class Transaction(
     val timestamp: Instant,
     val feeSats: Long = 0,
     val preimage: String = "",
+    val paymentRequest: String = "",
 ) {
     enum class Direction { SENT, RECEIVED }
     enum class Status { PENDING, SETTLED, FAILED }

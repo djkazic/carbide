@@ -135,6 +135,7 @@ class RealLndConnection @Inject constructor(
                             timestamp = Instant.ofEpochSecond(pay.creationDate),
                             feeSats = pay.feeSat,
                             preimage = pay.paymentPreimage,
+                            paymentRequest = pay.paymentRequest,
                         )
                     )
                 }
@@ -158,6 +159,7 @@ class RealLndConnection @Inject constructor(
                             preimage = if (inv.rPreimage.size() > 0)
                                 inv.rPreimage.toByteArray().joinToString("") { "%02x".format(it) }
                             else "",
+                            paymentRequest = inv.paymentRequest,
                         )
                     )
                 }

@@ -1,5 +1,6 @@
 package com.carbide.wallet
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,12 +24,16 @@ class MainActivity : FragmentActivity() {
 
     @Inject lateinit var biometricLockManager: BiometricLockManager
 
+    lateinit var nfcManager: com.carbide.wallet.data.NfcManager
     private val isLocked = mutableStateOf(false)
     private var needsAuth = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+
+        nfcManager = com.carbide.wallet.data.NfcManager(this)
+        nfcManager.handleIntent(intent)
 
         if (biometricLockManager.isEnabled) {
             isLocked.value = true
@@ -51,8 +56,14 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        nfcManager.handleIntent(intent)
+    }
+
     override fun onResume() {
         super.onResume()
+        nfcManager.enableReader()
         if (needsAuth && biometricLockManager.isEnabled) {
             isLocked.value = true
             authenticate()
@@ -62,6 +73,8 @@ class MainActivity : FragmentActivity() {
 
     override fun onPause() {
         super.onPause()
+        nfcManager.disableReader()
+        nfcManager.setPushMessage(null)
         if (biometricLockManager.isEnabled) {
             isLocked.value = true
             needsAuth = true

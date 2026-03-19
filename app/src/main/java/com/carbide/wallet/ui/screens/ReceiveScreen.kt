@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -233,6 +234,13 @@ private fun LightningReceive(viewModel: WalletViewModel, maxReceivable: Long) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                // Enable NFC push with the invoice
+                val nfcActivity = (LocalContext.current as? com.carbide.wallet.MainActivity)
+                DisposableEffect(generatedInvoice) {
+                    nfcActivity?.nfcManager?.setPushMessage(generatedInvoice)
+                    onDispose { nfcActivity?.nfcManager?.setPushMessage(null) }
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 QrCode(

@@ -201,6 +201,26 @@ fun TransactionDetailScreen(
                     }
                 }
 
+                // Invoice / Payment Request
+                if (tx.paymentRequest.isNotBlank()) {
+                    Column {
+                        Text("Invoice", style = MaterialTheme.typography.labelMedium, color = TextTertiary)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            tx.paymentRequest,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    cb.setPrimaryClip(ClipData.newPlainText("invoice", tx.paymentRequest))
+                                    Toast.makeText(context, "Invoice copied", Toast.LENGTH_SHORT).show()
+                                },
+                        )
+                    }
+                }
+
                 // Transaction/Payment ID — tappable to copy
                 Column {
                     Text("ID", style = MaterialTheme.typography.labelMedium, color = TextTertiary)
