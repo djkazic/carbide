@@ -30,8 +30,8 @@ class WalletRepository @Inject constructor(
     suspend fun newAddress(): Result<String> =
         lnd.newAddress()
 
-    suspend fun sendOnChain(address: String, amountSats: Long, satPerVbyte: Long): Result<String> =
-        lnd.sendOnChain(address, amountSats, satPerVbyte)
+    suspend fun sendOnChain(address: String, amountSats: Long, satPerVbyte: Long, sendAll: Boolean = false): Result<String> =
+        lnd.sendOnChain(address, amountSats, satPerVbyte, sendAll)
 
     suspend fun estimateFee(address: String, amountSats: Long): Result<FeeEstimate> =
         lnd.estimateFee(address, amountSats)

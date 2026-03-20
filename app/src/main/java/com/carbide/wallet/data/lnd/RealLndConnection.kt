@@ -250,13 +250,18 @@ class RealLndConnection @Inject constructor(
         address: String,
         amountSats: Long,
         satPerVbyte: Long,
+        sendAll: Boolean,
     ): Result<String> =
         runCatching {
-            val request = LN.SendCoinsRequest.newBuilder()
+            val builder = LN.SendCoinsRequest.newBuilder()
                 .setAddr(address)
-                .setAmount(amountSats)
                 .setSatPerVbyte(satPerVbyte.coerceAtLeast(1))
-                .build()
+            if (sendAll) {
+                builder.setSendAll(true)
+            } else {
+                builder.setAmount(amountSats)
+            }
+            val request = builder.build()
             val response = lndCall(
                 lndmobile.Lndmobile::sendCoins,
                 request,

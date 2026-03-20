@@ -14,7 +14,7 @@ interface LndConnection {
     suspend fun sendPayment(paymentRequest: String): Result<Transaction>
     suspend fun createInvoice(amountSats: Long, memo: String): Result<Pair<String, String>>
     suspend fun newAddress(): Result<String>
-    suspend fun sendOnChain(address: String, amountSats: Long, satPerVbyte: Long): Result<String>
+    suspend fun sendOnChain(address: String, amountSats: Long, satPerVbyte: Long, sendAll: Boolean = false): Result<String>
     suspend fun estimateFee(address: String, amountSats: Long): Result<FeeEstimate>
     suspend fun listChannels(): Result<List<ChannelInfo>>
     suspend fun closeChannel(channelPoint: String, force: Boolean): Result<String>

@@ -87,6 +87,7 @@ fun SendScreen(
     // On-chain state
     var onChainAmount by rememberSaveable { mutableStateOf("") }
     var onChainFeeRate by rememberSaveable { mutableStateOf("") }
+    var onChainSendAll by rememberSaveable { mutableStateOf(false) }
     var onChainConfirming by rememberSaveable { mutableStateOf(false) }
 
     // LNURL state
@@ -117,7 +118,13 @@ fun SendScreen(
 
     LaunchedEffect(sendResult) { if (sendResult != null) isSending = false }
     LaunchedEffect(decodedInvoice) { if (decodedInvoice != null) isProcessing = false }
-    LaunchedEffect(feeEstimateResult) { if (feeEstimateResult != null) isProcessing = false }
+    LaunchedEffect(feeEstimateResult) {
+        if (feeEstimateResult != null) isProcessing = false
+        if (onChainSendAll && feeEstimateResult?.isSuccess == true) {
+            val fee = feeEstimateResult?.getOrNull()?.feeSats ?: 0
+            onChainAmount = (walletState.onchainBalanceSats - fee).coerceAtLeast(0).toString()
+        }
+    }
     LaunchedEffect(sendOnChainResult) { if (sendOnChainResult != null) isSending = false }
     LaunchedEffect(lnUrlInfoResult) { if (lnUrlInfoResult != null) isProcessing = false }
 
@@ -235,12 +242,19 @@ fun SendScreen(
                 SendPhase.ONCHAIN_AMOUNT -> OnChainAmountPhase(
                     address = inputText,
                     amountText = onChainAmount,
-                    onAmountChange = { onChainAmount = it },
+                    onAmountChange = { onChainAmount = it; onChainSendAll = false },
                     feeRateText = onChainFeeRate,
                     onFeeRateChange = { onChainFeeRate = it },
                     onchainBalanceSats = walletState.onchainBalanceSats,
                     isEstimating = isProcessing,
                     error = feeError,
+                    onMax = {
+                        onChainSendAll = true
+                        onChainAmount = walletState.onchainBalanceSats.toString()
+                        isProcessing = true
+                        // Estimate with half the balance so LND has room for fees
+                        viewModel.estimateFee(inputText, (walletState.onchainBalanceSats / 2).coerceAtLeast(1))
+                    },
                     onEstimate = {
                         val sats = onChainAmount.toLongOrNull() ?: 0L
                         isProcessing = true
@@ -280,19 +294,25 @@ fun SendScreen(
                 }
 
                 SendPhase.CONFIRM_ONCHAIN -> {
-                    val sats = onChainAmount.toLongOrNull() ?: 0L
                     val customRate = onChainFeeRate.toLongOrNull()
                     val effectiveRate = customRate ?: feeEstimate?.satPerVbyte ?: 1
+                    val fee = feeEstimate?.feeSats ?: 0
+                    val sats = if (onChainSendAll) {
+                        (walletState.onchainBalanceSats - fee).coerceAtLeast(0)
+                    } else {
+                        onChainAmount.toLongOrNull() ?: 0L
+                    }
                     ConfirmOnChainPhase(
                         address = inputText,
                         amountSats = sats,
-                        feeSats = feeEstimate?.feeSats ?: 0,
+                        feeSats = fee,
                         satPerVbyte = effectiveRate,
+                        sendAll = onChainSendAll,
                         isSending = isSending,
                         sendError = onChainError,
                         onConfirm = {
                             isSending = true
-                            viewModel.sendOnChain(inputText, sats, effectiveRate)
+                            viewModel.sendOnChain(inputText, sats, effectiveRate, onChainSendAll)
                         },
                     )
                 }
@@ -385,6 +405,7 @@ private fun OnChainAmountPhase(
     onchainBalanceSats: Long,
     isEstimating: Boolean,
     error: String?,
+    onMax: () -> Unit,
     onEstimate: () -> Unit,
 ) {
     val fmt = remember { NumberFormat.getNumberInstance(Locale.US) }
@@ -424,7 +445,7 @@ private fun OnChainAmountPhase(
                 ),
             )
             OutlinedButton(
-                onClick = { onAmountChange(onchainBalanceSats.toString()) },
+                onClick = onMax,
                 enabled = !isEstimating && onchainBalanceSats > 0,
                 shape = RoundedCornerShape(12.dp),
             ) {
@@ -599,6 +620,7 @@ private fun ConfirmOnChainPhase(
     amountSats: Long,
     feeSats: Long,
     satPerVbyte: Long,
+    sendAll: Boolean,
     isSending: Boolean,
     sendError: String?,
     onConfirm: () -> Unit,

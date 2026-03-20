@@ -407,10 +407,10 @@ class WalletViewModel @Inject constructor(
         }
     }
 
-    fun sendOnChain(address: String, amountSats: Long, satPerVbyte: Long? = null) {
+    fun sendOnChain(address: String, amountSats: Long, satPerVbyte: Long? = null, sendAll: Boolean = false) {
         viewModelScope.launch {
             val rate = satPerVbyte ?: chainTipProvider.getHourFeeRate()
-            _sendOnChainResult.value = repository.sendOnChain(address, amountSats, rate)
+            _sendOnChainResult.value = repository.sendOnChain(address, amountSats, rate, sendAll)
         }
     }
 
