@@ -165,10 +165,16 @@ private fun ReverseSwapPane(onBack: () -> Unit, viewModel: WalletViewModel) {
             minMax = swapInfo?.let { "Min: ${fmt.format(it.minAmount)} · Max: ${fmt.format(it.maxAmount)} sats" },
             amountText = amountText,
             onAmountChange = { amountText = it },
-            feePreview = swapInfo?.let { info ->
+            feeBreakdown = swapInfo?.let { info ->
                 val amt = amountText.toLongOrNull() ?: 0
-                if (amt > 0) Triple("${fmt.format(amt)} sats", "${fmt.format(info.totalFeeSat(amt))} sats", "${fmt.format(info.onchainAmountSat(amt))} sats")
-                else null
+                if (amt > 0) FeeBreakdown(
+                    sendAmount = amt,
+                    serviceFeePercent = info.feePercentage,
+                    serviceFeeSat = (amt * info.feePercentage / 100).toLong(),
+                    minerFeeSat = info.minerFeeSat,
+                    totalFeeSat = info.totalFeeSat(amt),
+                    receiveAmount = info.onchainAmountSat(amt),
+                ) else null
             },
             sendLabel = "Send (Lightning)",
             receiveLabel = "Receive (On-chain)",
@@ -242,9 +248,15 @@ private fun SubmarineSwapPane(onBack: () -> Unit, viewModel: WalletViewModel) {
             minMax = swapInfo?.let { "Min: ${fmt.format(it.minAmount)} · Max: ${fmt.format(it.maxAmount)} sats" },
             amountText = amountText,
             onAmountChange = { amountText = it },
-            feePreview = swapInfo?.let { info ->
-                if (amountSat > 0) Triple("${fmt.format(amountSat)} sats", "${fmt.format(info.totalFeeSat(amountSat))} sats", "${fmt.format(amountSat - info.totalFeeSat(amountSat))} sats")
-                else null
+            feeBreakdown = swapInfo?.let { info ->
+                if (amountSat > 0) FeeBreakdown(
+                    sendAmount = amountSat,
+                    serviceFeePercent = info.feePercentage,
+                    serviceFeeSat = (amountSat * info.feePercentage / 100).toLong(),
+                    minerFeeSat = info.minerFeeSat,
+                    totalFeeSat = info.totalFeeSat(amountSat),
+                    receiveAmount = amountSat - info.totalFeeSat(amountSat),
+                ) else null
             },
             sendLabel = "Send (On-chain)",
             receiveLabel = "Receive (Lightning)",
@@ -261,6 +273,15 @@ private fun SubmarineSwapPane(onBack: () -> Unit, viewModel: WalletViewModel) {
 
 // ==================== Shared UI Components ====================
 
+private data class FeeBreakdown(
+    val sendAmount: Long,
+    val serviceFeePercent: Double,
+    val serviceFeeSat: Long,
+    val minerFeeSat: Long,
+    val totalFeeSat: Long,
+    val receiveAmount: Long,
+)
+
 @Composable
 private fun AmountPane(
     description: String,
@@ -268,7 +289,7 @@ private fun AmountPane(
     minMax: String?,
     amountText: String,
     onAmountChange: (String) -> Unit,
-    feePreview: Triple<String, String, String>?, // send, fee, receive
+    feeBreakdown: FeeBreakdown?,
     sendLabel: String,
     receiveLabel: String,
     isValid: Boolean,
@@ -334,16 +355,21 @@ private fun AmountPane(
             ),
         )
 
-        if (feePreview != null) {
+        if (feeBreakdown != null) {
             Column(
                 modifier = Modifier.fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                     .padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FeeRow(sendLabel, feePreview.first)
-                FeeRow("Swap fee", feePreview.second)
-                FeeRow(receiveLabel, feePreview.third, highlight = true)
+                FeeRow(sendLabel, "${fmt.format(feeBreakdown.sendAmount)} sats")
+                FeeRow(
+                    "Service fee (${String.format("%.1f", feeBreakdown.serviceFeePercent)}%)",
+                    "${fmt.format(feeBreakdown.serviceFeeSat)} sats",
+                )
+                FeeRow("Miner fee", "${fmt.format(feeBreakdown.minerFeeSat)} sats")
+                FeeRow("Total fee", "${fmt.format(feeBreakdown.totalFeeSat)} sats")
+                FeeRow(receiveLabel, "${fmt.format(feeBreakdown.receiveAmount)} sats", highlight = true)
             }
         }
 

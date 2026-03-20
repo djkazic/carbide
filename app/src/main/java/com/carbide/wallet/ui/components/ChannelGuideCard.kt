@@ -51,6 +51,10 @@ import com.carbide.wallet.ui.theme.SurfaceCard
 import com.carbide.wallet.ui.theme.TextSecondary
 import com.carbide.wallet.ui.theme.TextTertiary
 import com.carbide.wallet.viewmodel.WalletViewModel
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.text.input.KeyboardType
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -196,24 +200,53 @@ private fun OrderPhase(viewModel: WalletViewModel, error: String?) {
     LaunchedEffect(lspOrder) { if (lspOrder != null) ordering = false }
 
     val info = lspInfo?.getOrNull()
-    val maxLsp = info?.maxChannelBalanceSat ?: 0
-    // Request a reasonable channel — ask the LSP for inbound liquidity
-    val lspBalance = maxLsp.coerceAtMost(1_000_000) // up to 1M sats inbound
+    val minLsp = 1_000_000L
+    val maxLsp = 5_000_000L
+    val fmt = NumberFormat.getNumberInstance(Locale.US)
+
+    var sizeText by rememberSaveable { mutableStateOf(fmt.format(minLsp)) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        val lspFormatted = NumberFormat.getNumberInstance(Locale.US).format(lspBalance)
         Text(
-            "LSP1 connected. Request a channel with up to $lspFormatted sats of inbound liquidity. The LSP will charge a small fee.",
+            "LSP1 connected. Choose how much inbound liquidity you want. The LSP will charge a small fee.",
             style = MaterialTheme.typography.bodyMedium, color = TextSecondary,
         )
+
+        OutlinedTextField(
+            value = sizeText,
+            onValueChange = { sizeText = it.filter { c -> c.isDigit() } },
+            label = { Text("Channel size (sats)") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            enabled = !ordering,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Lightning, unfocusedBorderColor = SurfaceBorder,
+                cursorColor = Lightning,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedLabelColor = Lightning, unfocusedLabelColor = TextSecondary,
+            ),
+        )
+        Text(
+            "Min: ${fmt.format(minLsp)} · Max: ${fmt.format(maxLsp)} sats",
+            style = MaterialTheme.typography.labelMedium, color = TextTertiary,
+        )
+
         if (error != null) {
             Text(error, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
         }
-        PrimaryButton(if (ordering) null else "Request Channel") {
+
+        val size = sizeText.toLongOrNull() ?: 0
+        val valid = size in minLsp..maxLsp
+
+        PrimaryButton(if (ordering) null else if (valid) "Request Channel" else "Invalid size") {
+            if (!valid) return@PrimaryButton
             ordering = true
             viewModel.createLspOrder(
                 pubkey = LSP_PUBKEY,
-                lspBalanceSat = lspBalance,
+                lspBalanceSat = size,
                 clientBalanceSat = 0,
                 channelExpiryBlocks = info?.maxChannelExpiryBlocks ?: 144 * 30,
             )

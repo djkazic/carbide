@@ -31,7 +31,17 @@ class WalletPasswordStore @Inject constructor(
 
     fun hasPassword(): Boolean = prefs.contains(KEY_PASSWORD)
 
+    fun setSeed(words: List<String>) {
+        prefs.edit().putString(KEY_SEED, words.joinToString(" ")).apply()
+    }
+
+    fun getSeed(): List<String>? {
+        val raw = prefs.getString(KEY_SEED, null) ?: return null
+        return raw.split(" ").filter { it.isNotEmpty() }
+    }
+
     private companion object {
         const val KEY_PASSWORD = "wallet_password"
+        const val KEY_SEED = "wallet_seed"
     }
 }

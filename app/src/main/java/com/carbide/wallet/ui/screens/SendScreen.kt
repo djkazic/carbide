@@ -86,10 +86,13 @@ fun SendScreen(
 
     // On-chain state
     var onChainAmount by rememberSaveable { mutableStateOf("") }
+    var onChainFeeRate by rememberSaveable { mutableStateOf("") }
     var onChainConfirming by rememberSaveable { mutableStateOf(false) }
 
     // LNURL state
     var lnUrlAmount by rememberSaveable { mutableStateOf("") }
+
+    val walletState by viewModel.walletState.collectAsStateWithLifecycle()
 
     // Lightning state
     val decodedInvoice by viewModel.decodedInvoice.collectAsStateWithLifecycle()
@@ -233,6 +236,9 @@ fun SendScreen(
                     address = inputText,
                     amountText = onChainAmount,
                     onAmountChange = { onChainAmount = it },
+                    feeRateText = onChainFeeRate,
+                    onFeeRateChange = { onChainFeeRate = it },
+                    onchainBalanceSats = walletState.onchainBalanceSats,
                     isEstimating = isProcessing,
                     error = feeError,
                     onEstimate = {
@@ -275,16 +281,18 @@ fun SendScreen(
 
                 SendPhase.CONFIRM_ONCHAIN -> {
                     val sats = onChainAmount.toLongOrNull() ?: 0L
+                    val customRate = onChainFeeRate.toLongOrNull()
+                    val effectiveRate = customRate ?: feeEstimate?.satPerVbyte ?: 1
                     ConfirmOnChainPhase(
                         address = inputText,
                         amountSats = sats,
                         feeSats = feeEstimate?.feeSats ?: 0,
-                        satPerVbyte = feeEstimate?.satPerVbyte ?: 1,
+                        satPerVbyte = effectiveRate,
                         isSending = isSending,
                         sendError = onChainError,
                         onConfirm = {
                             isSending = true
-                            viewModel.sendOnChain(inputText, sats, feeEstimate?.satPerVbyte ?: 1)
+                            viewModel.sendOnChain(inputText, sats, effectiveRate)
                         },
                     )
                 }
@@ -372,10 +380,15 @@ private fun OnChainAmountPhase(
     address: String,
     amountText: String,
     onAmountChange: (String) -> Unit,
+    feeRateText: String,
+    onFeeRateChange: (String) -> Unit,
+    onchainBalanceSats: Long,
     isEstimating: Boolean,
     error: String?,
     onEstimate: () -> Unit,
 ) {
+    val fmt = remember { NumberFormat.getNumberInstance(Locale.US) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -385,12 +398,45 @@ private fun OnChainAmountPhase(
         Spacer(modifier = Modifier.height(8.dp))
 
         DetailRow(label = "To", value = address.take(14) + "..." + address.takeLast(8))
+        DetailRow(label = "Available", value = "${fmt.format(onchainBalanceSats)} sats")
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedTextField(
+                value = amountText,
+                onValueChange = { onAmountChange(it.filter { c -> c.isDigit() }) },
+                label = { Text("Amount (sats)") },
+                placeholder = { Text("0", color = TextTertiary) },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(16.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                enabled = !isEstimating,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Lightning, unfocusedBorderColor = SurfaceBorder,
+                    cursorColor = Lightning,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    focusedLabelColor = Lightning, unfocusedLabelColor = TextSecondary,
+                ),
+            )
+            OutlinedButton(
+                onClick = { onAmountChange(onchainBalanceSats.toString()) },
+                enabled = !isEstimating && onchainBalanceSats > 0,
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Text("Max", style = MaterialTheme.typography.labelLarge)
+            }
+        }
 
         OutlinedTextField(
-            value = amountText,
-            onValueChange = { onAmountChange(it.filter { c -> c.isDigit() }) },
-            label = { Text("Amount (sats)") },
-            placeholder = { Text("0", color = TextTertiary) },
+            value = feeRateText,
+            onValueChange = { onFeeRateChange(it.filter { c -> c.isDigit() }) },
+            label = { Text("Fee rate (sat/vB)") },
+            placeholder = { Text("auto", color = TextTertiary) },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -404,6 +450,7 @@ private fun OnChainAmountPhase(
                 focusedLabelColor = Lightning, unfocusedLabelColor = TextSecondary,
             ),
         )
+        Text("Leave empty for automatic fee estimation", style = MaterialTheme.typography.labelMedium, color = TextTertiary)
 
         if (error != null) {
             Text(error, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)

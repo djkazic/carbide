@@ -243,6 +243,7 @@ class WalletViewModel @Inject constructor(
                 _setupError.value = null
                 lndService.initWallet(password, _seedWords.value)
                 passwordStore.setPassword(password)
+                passwordStore.setSeed(_seedWords.value)
             } catch (e: Exception) {
                 _setupError.value = e.message
             }
@@ -268,6 +269,7 @@ class WalletViewModel @Inject constructor(
                     channelBackup = scb,
                 )
                 passwordStore.setPassword(password)
+                passwordStore.setSeed(seed)
             } catch (e: Exception) {
                 _setupError.value = e.message
             }
@@ -759,6 +761,8 @@ class WalletViewModel @Inject constructor(
 
     fun addContact(contact: Contact) = contactStore.add(contact)
     fun removeContact(contact: Contact) = contactStore.remove(contact)
+
+    fun getSeed(): List<String>? = passwordStore.getSeed()
 
     fun dismissChannelPrompt() {
         channelPromptStore.dismiss()
