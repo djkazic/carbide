@@ -21,20 +21,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ElectricBolt
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -71,14 +68,12 @@ fun ChannelGuideCard(
     val lspInfo by viewModel.lspInfo.collectAsStateWithLifecycle()
     val lspOrder by viewModel.lspOrder.collectAsStateWithLifecycle()
     val hasActiveOrder = viewModel.channelPromptStore.getActiveOrderId() != null
-    val dismissed = remember { viewModel.channelPromptStore.wasDismissed() }
 
     // Hide if channel already exists/pending
     if (walletState.numActiveChannels > 0 || walletState.numPendingChannels > 0) return
     // Wait for at least one GetInfo response (blockHeight > 0 means we've polled),
     // unless there's an active order (always show that immediately)
     if (walletState.blockHeight == 0 && !hasActiveOrder) return
-    if (dismissed && !hasActiveOrder && lspOrder?.getOrNull() == null) return
 
     val order = lspOrder?.getOrNull()
     val context = LocalContext.current
@@ -122,20 +117,11 @@ fun ChannelGuideCard(
             .padding(16.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(Icons.Rounded.ElectricBolt, null, tint = Lightning, modifier = Modifier.size(20.dp))
-                Text("Get Connected", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-            }
-            IconButton(onClick = { viewModel.dismissChannelPrompt() }, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.Rounded.Close, "Dismiss", tint = TextTertiary, modifier = Modifier.size(16.dp))
-            }
+            Icon(Icons.Rounded.ElectricBolt, null, tint = Lightning, modifier = Modifier.size(20.dp))
+            Text("Get Connected", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         }
 
         Spacer(modifier = Modifier.height(12.dp))
